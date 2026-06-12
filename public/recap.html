@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LAN PARTY HQ — Recap</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;700&family=VT323&display=swap" rel="stylesheet" />
+<style>
+  :root { --gx:#fa1e4e; --cyan:#00f0ff; --mag:#ff2ad4; }
+  body { background:#0a0a12; color:#e8e8f0; font-family:"Chakra Petch",sans-serif; }
+  body::after { content:""; position:fixed; inset:0; pointer-events:none;
+    background:repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,.15) 2px 4px); }
+  .glitch { font-family:"VT323",monospace; letter-spacing:.08em;
+    background:linear-gradient(90deg,var(--gx),var(--mag),var(--cyan));
+    -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .crt { text-shadow:0 0 8px currentColor; }
+  .card { background:linear-gradient(180deg, rgba(255,42,212,.07), rgba(0,240,255,.04)), #11111c;
+    border:1px solid #2a2a3e; border-radius:1rem; }
+  .award { font-family:"VT323",monospace; font-size:1.1rem; letter-spacing:.08em; color:var(--cyan); }
+  .lang-on { background:var(--cyan); color:#000; }
+</style>
+</head>
+<body class="p-6">
+  <div class="flex justify-end max-w-6xl mx-auto">
+    <span class="flex border border-zinc-700 rounded overflow-hidden text-xs font-bold">
+      <button data-lang="en" onclick="setLang('en')" class="px-2 py-1">EN</button>
+      <button data-lang="de" onclick="setLang('de')" class="px-2 py-1">DE</button>
+      <button data-lang="ch" onclick="setLang('ch')" class="px-2 py-1">CH</button>
+    </span>
+  </div>
+  <h1 class="glitch text-5xl text-center" data-i18n="recapTitle"></h1>
+  <p id="meta" class="text-center text-zinc-500 mt-1 text-sm"></p>
+
+  <div id="awards" class="card max-w-3xl mx-auto mt-6 p-5 grid sm:grid-cols-2 gap-3"></div>
+  <div id="cards" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-6xl mx-auto mt-6"></div>
+
+<script src="/i18n.js"></script>
+<script>
+applyI18n();
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+
+fetch("/api/state").then(r=>r.json()).then(S => {
+  const orders = [...S.orders].sort((a,b)=>a.ts-b.ts);
+  if (!orders.length) {
+    document.getElementById("meta").textContent = t("recapEmpty");
+    return;
+  }
+  const t0 = orders[0].ts, t1 = orders[orders.length-1].ts;
+  const hours = Math.max((t1-t0)/3600000, 0.1);
+  document.getElementById("meta").textContent =
+    new Date(t0).toLocaleTimeString().slice(0,5) + " → " + new Date(t1).toLocaleTimeString().slice(0,5) +
+    " · " + t("recapMeta", orders.length, (orders.length/hours).toFixed(1));
+
+  const people = {};
+  for (const o of orders) {
+    const p = people[o.who] ||= { total:0, items:{}, games:{}, ts:[] };
+    p.total++; p.ts.push(o.ts);
+    p.items[o.emoji + " " + o.item] = (p.items[o.emoji+" "+o.item]||0)+1;
+    if (o.game) p.games[o.game] = (p.games[o.game]||0)+1;
+  }
+  const top = obj => Object.entries(obj).sort((a,b)=>b[1]-a[1])[0];
+
+  const entries = Object.entries(people);
+  const mvp = [...S.players].sort((a,b)=>b.score-a.score)[0];
+  const glutton = [...entries].sort((a,b)=>b[1].total-a[1].total)[0];
+  const topGame = top(S.gameDrinks || {});
+  const topItem = top(orders.reduce((m,o)=>(m[o.emoji+" "+o.item]=(m[o.emoji+" "+o.item]||0)+1,m),{}));
+  document.getElementById("awards").innerHTML = [
+    mvp && `<div><span class="award">${t("awMvp")}</span><br><b class="text-xl">${esc(mvp.name)}</b> · ${mvp.score} ${t("pts")}</div>`,
+    glutton && `<div><span class="award">${t("awPit")}</span><br><b class="text-xl">${esc(glutton[0])}</b> · ${t("awOrders", glutton[1].total)}</div>`,
+    topItem && `<div><span class="award">${t("awTop")}</span><br><b class="text-xl">${esc(topItem[0])}</b> · ${topItem[1]}×</div>`,
+    topGame && `<div><span class="award">${t("awGame")}</span><br><b class="text-xl">${esc(topGame[0])}</b> · ${t("awDrinks", topGame[1])}</div>`,
+  ].filter(Boolean).join("");
+
+  document.getElementById("cards").innerHTML = entries.map(([name,p]) => {
+    const fav = top(p.items), favGame = top(p.games);
+    const score = S.players.find(x=>x.name===name)?.score;
+    return `<div class="card p-4">
+      <div class="flex items-baseline justify-between">
+        <b class="text-2xl text-[--cyan] crt">${esc(name)}</b>
+        ${score!=null?`<span class="text-[--mag] font-bold">${score} ${t("pts")}</span>`:""}
+      </div>
+      <div class="mt-2 text-sm space-y-1 text-zinc-300">
+        <div>${t("stOrders", p.total, (p.total/hours).toFixed(1))}</div>
+        ${fav?`<div>${t("stFav", esc(fav[0]), fav[1])}</div>`:""}
+        ${favGame?`<div>${t("stGame", esc(favGame[0]))}</div>`:""}
+      </div>
+      <canvas width="320" height="48" class="mt-3 w-full" data-ts="${p.ts.join(",")}"></canvas>
+      <div class="text-[10px] text-zinc-600">${t("paceLabel")}</div>
+    </div>`;
+  }).join("");
+
+  const buckets = Math.max(2, Math.ceil((t1-t0)/1800000) + 1);
+  document.querySelectorAll("canvas").forEach(cv => {
+    const ts = cv.dataset.ts.split(",").map(Number);
+    const counts = new Array(buckets).fill(0);
+    ts.forEach(x => counts[Math.min(buckets-1, Math.floor((x-t0)/1800000))]++);
+    const max = Math.max(...counts, 1);
+    const ctx = cv.getContext("2d");
+    const w = cv.width / buckets;
+    counts.forEach((c,i) => {
+      const h = (c/max) * (cv.height-4);
+      const grad = ctx.createLinearGradient(0, cv.height-h, 0, cv.height);
+      grad.addColorStop(0, "#00f0ff"); grad.addColorStop(1, "#fa1e4e");
+      ctx.fillStyle = c ? grad : "#1c1c2a";
+      ctx.fillRect(i*w+1, cv.height - Math.max(h,2), w-2, Math.max(h,2));
+    });
+  });
+});
+</script>
+</body>
+</html>

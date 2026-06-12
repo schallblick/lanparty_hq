@@ -1,0 +1,10 @@
+# secrets
+.env
+
+# runtime state
+data.json
+sounds/*
+!sounds/.gitkeep
+
+# just in case
+node_modules/

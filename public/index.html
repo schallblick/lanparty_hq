@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LAN PARTY HQ</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=VT323&display=swap" rel="stylesheet" />
+<style>
+  :root { --gx:#fa1e4e; --cyan:#00f0ff; --mag:#ff2ad4; --bg:#0a0a12; }
+  body { background: var(--bg); color:#e8e8f0; font-family:"Chakra Petch",sans-serif; }
+  body::after { content:""; position:fixed; inset:0; pointer-events:none; z-index:50;
+    background:repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,.18) 2px 4px); }
+  .crt { text-shadow:0 0 6px currentColor; }
+  .glitch { font-family:"VT323",monospace; letter-spacing:.08em;
+    background:linear-gradient(90deg,var(--gx),var(--mag),var(--cyan));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 0 10px rgba(250,30,78,.6)); }
+  .panel { background:linear-gradient(180deg, rgba(255,42,212,.06), rgba(0,240,255,.04)), #11111c;
+    border:1px solid #2a2a3e; border-radius:.75rem;
+    box-shadow:0 0 0 1px rgba(0,240,255,.05), 0 0 24px rgba(250,30,78,.07); }
+  .panel h2 { font-family:"VT323",monospace; font-size:1.4rem; letter-spacing:.12em;
+    color:var(--cyan); text-shadow:0 0 8px rgba(0,240,255,.7); }
+  .neon-btn { border:1px solid var(--gx); color:var(--gx); transition:.15s; }
+  .neon-btn:hover:not(:disabled) { background:var(--gx); color:#000; box-shadow:0 0 16px rgba(250,30,78,.8); }
+  .neon-btn:disabled { opacity:.3; }
+  .cyan-btn { border:1px solid var(--cyan); color:var(--cyan); }
+  .cyan-btn:hover { background:var(--cyan); color:#000; box-shadow:0 0 16px rgba(0,240,255,.8); }
+  .lang-on { background:var(--cyan); color:#000; }
+  .stockbar { height:4px; background:#222; }
+  .stockbar div { height:100%; background:linear-gradient(90deg,var(--gx),var(--mag)); }
+  ::-webkit-scrollbar { width:6px; } ::-webkit-scrollbar-thumb { background:#333; }
+  @media (prefers-reduced-motion:no-preference) {
+    .pulse { animation:pulse 2.4s ease-in-out infinite; }
+    @keyframes pulse { 50% { filter:drop-shadow(0 0 18px rgba(255,42,212,.9)); } }
+  }
+  input,select { background:#0a0a14; border:1px solid #2a2a3e; border-radius:.4rem; padding:.3rem .5rem; color:#e8e8f0; }
+  input:focus { outline:none; border-color:var(--cyan); }
+</style>
+</head>
+<body class="min-h-screen">
+
+<div id="arm" class="fixed inset-0 z-[60] bg-black/85 flex items-center justify-center cursor-pointer">
+  <div class="text-center">
+    <div class="glitch text-6xl pulse mb-4">LAN PARTY HQ</div>
+    <div class="text-cyan-300 crt text-xl font-bold border border-cyan-400 rounded px-6 py-3 inline-block" data-i18n="enter"></div>
+    <p class="text-zinc-500 mt-3 text-sm" data-i18n="enterSub"></p>
+  </div>
+</div>
+
+<header class="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-zinc-800 sticky top-0 bg-[#0a0a12ee] backdrop-blur z-40">
+  <h1 class="glitch text-4xl">LAN PARTY HQ</h1>
+  <span id="whoami" class="text-sm text-zinc-400"></span>
+  <div class="ml-auto flex items-center gap-2">
+    <span id="conn" class="text-xs text-zinc-500"></span>
+    <span class="flex border border-zinc-700 rounded overflow-hidden text-xs font-bold">
+      <button data-lang="en" onclick="setLang('en')" class="px-2 py-1">EN</button>
+      <button data-lang="de" onclick="setLang('de')" class="px-2 py-1">DE</button>
+      <button data-lang="ch" onclick="setLang('ch')" class="px-2 py-1">CH</button>
+    </span>
+    <a href="/tv.html" class="cyan-btn rounded px-3 py-1 text-sm font-bold">📺 TV</a>
+    <a href="/recap.html" class="cyan-btn rounded px-3 py-1 text-sm font-bold">📊 RECAP</a>
+    <button onclick="toggleAdmin()" class="cyan-btn rounded px-3 py-1 text-sm font-bold" data-i18n="admin"></button>
+  </div>
+</header>
+
+<main class="grid gap-4 p-4 lg:grid-cols-3 max-w-7xl mx-auto">
+
+  <section class="panel p-4 lg:col-span-3">
+    <h2 data-i18n="nowPlaying"></h2>
+    <div id="steam" class="mt-2 text-zinc-500 text-sm" data-i18n="steamNotConf"></div>
+  </section>
+
+  <section class="panel p-4 lg:col-span-3">
+    <h2>⚽ <span data-i18n="wcTitle"></span></h2>
+    <div id="wc" class="mt-2 text-sm text-zinc-500">…</div>
+  </section>
+
+  <section class="panel p-4">
+    <h2 data-i18n="snackBar"></h2>
+    <div id="items" class="mt-3 space-y-3"></div>
+    <div id="addItem" class="hidden mt-4 pt-3 border-t border-zinc-800 flex flex-wrap gap-2">
+      <input id="niEmoji" placeholder="🍟" class="w-14" maxlength="4" />
+      <input id="niName" placeholder="name" class="flex-1 min-w-28" />
+      <input id="niStock" type="number" placeholder="qty" class="w-20" />
+      <button onclick="addItem()" class="cyan-btn rounded px-3 font-bold">+</button>
+    </div>
+  </section>
+
+  <section class="panel p-4">
+    <h2><span data-i18n="soundboard"></span> <span class="text-xs text-zinc-500 font-sans tracking-normal" data-i18n="everyDevice"></span></h2>
+    <div id="sounds" class="mt-3 grid grid-cols-2 gap-2"></div>
+    <div class="mt-4 pt-3 border-t border-zinc-800 flex flex-wrap items-center gap-2">
+      <label class="cyan-btn rounded px-3 py-1.5 text-sm font-bold cursor-pointer inline-block">
+        <span data-i18n="upload"></span>
+        <input type="file" accept=".mp3,.wav,.ogg,.m4a" class="hidden" onchange="uploadSound(this)" />
+      </label>
+      <button onclick="roulette()" class="neon-btn rounded px-3 py-1.5 text-sm font-bold" data-i18n="roulette"></button>
+      <span id="upstat" class="text-xs text-zinc-500"></span>
+    </div>
+  </section>
+
+  <section class="panel p-4">
+    <h2 data-i18n="leaderboard"></h2>
+    <div id="board" class="mt-3 space-y-2"></div>
+    <div class="mt-4 pt-3 border-t border-zinc-800 flex gap-2">
+      <input id="npName" data-i18n-ph="addPlayer" class="flex-1" />
+      <button onclick="addPlayer()" class="cyan-btn rounded px-3 font-bold">+</button>
+    </div>
+  </section>
+
+  <section class="panel p-4 lg:col-span-3">
+    <h2 data-i18n="orderFeed"></h2>
+    <div id="feed" class="mt-3 grid gap-1 text-sm max-h-64 overflow-y-auto"></div>
+  </section>
+</main>
+
+<script src="/i18n.js"></script>
+<script>
+applyI18n();
+
+/* ---------- identity ---------- */
+let me = localStorage.getItem("lan_name");
+if (!me) { me = (prompt(t("promptName")) || "anon").slice(0, 20); localStorage.setItem("lan_name", me); }
+document.getElementById("whoami").textContent = t("loggedAs") + me;
+document.getElementById("conn").textContent = t("connecting");
+fetch("/api/players", { method:"POST", body: JSON.stringify({ name: me }) });
+
+let admin = false;
+function toggleAdmin(){ admin = !admin; document.getElementById("addItem").classList.toggle("hidden", !admin); render(); }
+
+/* ---------- audio ---------- */
+let AC = null;
+document.getElementById("arm").addEventListener("click", () => {
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  document.getElementById("arm").remove();
+});
+const synths = {
+  "📯 AIRHORN": () => sweep("sawtooth", 440, 466, 1.2, .5, 3),
+  "🎺 SAD TROMBONE": () => { [392,370,349,311].forEach((f,i)=>tone("sawtooth",f,.4,i*.45,.25)); },
+  "🔫 LASER": () => sweep("square", 1800, 200, .3, .3, 1),
+  "💥 BOOM": () => { sweep("sine", 160, 35, .7, .9, 1); noise(.4,.5); },
+  "🪙 COIN": () => { tone("square",988,.12,0,.3); tone("square",1319,.4,.12,.3); },
+  "💧": () => { sweep("sine", 900, 300, .15, .35, 1); tone("sine", 1200, .25, .15, .25); },
+};
+function tone(type,f,dur,delay=0,gain=.3){ if(!AC)return; const o=AC.createOscillator(),g=AC.createGain();
+  o.type=type;o.frequency.value=f;g.gain.setValueAtTime(gain,AC.currentTime+delay);
+  g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+delay+dur);
+  o.connect(g).connect(AC.destination);o.start(AC.currentTime+delay);o.stop(AC.currentTime+delay+dur); }
+function sweep(type,f1,f2,dur,gain,vibrato){ if(!AC)return; const o=AC.createOscillator(),g=AC.createGain();
+  o.type=type;o.frequency.setValueAtTime(f1,AC.currentTime);
+  o.frequency.exponentialRampToValueAtTime(f2,AC.currentTime+dur);
+  if(vibrato>1){const l=AC.createOscillator(),lg=AC.createGain();l.frequency.value=vibrato*4;lg.gain.value=f1*.05;
+    l.connect(lg).connect(o.frequency);l.start();l.stop(AC.currentTime+dur);}
+  g.gain.setValueAtTime(gain,AC.currentTime);g.gain.exponentialRampToValueAtTime(.001,AC.currentTime+dur);
+  o.connect(g).connect(AC.destination);o.start();o.stop(AC.currentTime+dur); }
+function noise(dur,gain){ if(!AC)return; const b=AC.createBuffer(1,AC.sampleRate*dur,AC.sampleRate),d=b.getChannelData(0);
+  for(let i=0;i<d.length;i++)d[i]=(Math.random()*2-1)*(1-i/d.length);
+  const s=AC.createBufferSource(),g=AC.createGain();s.buffer=b;g.gain.value=gain;
+  s.connect(g).connect(AC.destination);s.start(); }
+function playSound(s){
+  if (synths[s]) return synths[s]();
+  const a = new Audio("/sounds/" + s); a.play().catch(()=>{});
+}
+
+/* ---------- live state ---------- */
+let S = { items:[], orders:[], players:[], sounds:[], gameDrinks:{} };
+const es = new EventSource("/api/events?name=" + encodeURIComponent(me));
+es.addEventListener("state", e => { S = JSON.parse(e.data); render(); });
+es.addEventListener("play", e => { const {sound,who}=JSON.parse(e.data); playSound(sound); flash(who); });
+es.addEventListener("roulette", e => {
+  const {who,victim} = JSON.parse(e.data);
+  const c = document.getElementById("conn");
+  c.textContent = t("rouletteHit", who, victim);
+  setTimeout(()=>c.textContent=t("live"), 4000);
+});
+es.addEventListener("hydrate", () => {
+  playSound("💧");
+  const o = document.createElement("div");
+  o.className = "fixed inset-0 z-[70] bg-cyan-950/90 flex items-center justify-center cursor-pointer";
+  o.innerHTML = `<div class="text-center pulse">
+    <div class="text-7xl mb-4">💧</div>
+    <div class="glitch text-5xl mb-2">${t("hydrateTitle")}</div>
+    <div class="text-cyan-300 crt text-xl">${t("hydrateSub")}</div>
+    <div class="text-zinc-500 text-sm mt-3">${t("tapDismiss")}</div></div>`;
+  o.onclick = () => o.remove();
+  document.body.appendChild(o);
+  setTimeout(() => o.remove(), 30000);
+});
+es.onopen = () => document.getElementById("conn").textContent = t("live");
+es.onerror = () => document.getElementById("conn").textContent = t("reconnect");
+function flash(who){ const c=document.getElementById("conn"); c.textContent="🔊 "+(who||""); setTimeout(()=>c.textContent=t("live"),2000); }
+
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
+
+function render(){
+  document.getElementById("items").innerHTML = S.items.map(i => `
+    <div class="flex items-center gap-3">
+      <span class="text-2xl">${esc(i.emoji)}</span>
+      <div class="flex-1">
+        <div class="flex justify-between text-sm"><b>${esc(i.name)}</b>
+          <span class="${i.stock===0?'text-red-500':'text-zinc-400'}">${i.stock===0?t("out"):i.stock+" "+t("left")}</span></div>
+        <div class="stockbar rounded mt-1"><div style="width:${Math.min(100,i.stock*8)}%"></div></div>
+      </div>
+      <button ${i.stock===0?'disabled':''} onclick="order('${i.id}')"
+        class="neon-btn rounded px-3 py-1 text-sm font-bold">${t("order")}</button>
+      ${admin?`<input type="number" value="${i.stock}" class="w-16" onchange="setStock('${i.id}',this.value)">
+        <button onclick="delItem('${i.id}')" class="text-red-500 px-1">✕</button>`:""}
+    </div>`).join("");
+
+  const builtin = Object.keys(synths).map(n =>
+    `<button onclick="blast('${n}')" class="neon-btn rounded py-2 text-sm font-bold">${n}</button>`);
+  const uploaded = S.sounds.map(s =>
+    `<button onclick="blast('${esc(s.file)}')" class="cyan-btn rounded py-2 text-sm font-bold">🔊 ${esc(s.name)}</button>`);
+  document.getElementById("sounds").innerHTML = builtin.concat(uploaded).join("");
+
+  const sorted = [...S.players].sort((a,b)=>b.score-a.score);
+  document.getElementById("board").innerHTML = sorted.map((p,i)=>`
+    <div class="flex items-center gap-2">
+      <span class="w-7 text-center font-bold ${i===0?'text-yellow-400 crt':i===1?'text-zinc-300':i===2?'text-amber-600':'text-zinc-600'}">${i===0?'👑':i+1}</span>
+      <b class="flex-1 ${p.name===me?'text-[--cyan]':''}">${esc(p.name)}</b>
+      <span class="font-bold text-[--mag] crt w-12 text-right">${p.score}</span>
+      <button onclick="score('${esc(p.name)}',1)" class="cyan-btn rounded w-7">+</button>
+      <button onclick="score('${esc(p.name)}',-1)" class="neon-btn rounded w-7">−</button>
+    </div>`).join("") || `<div class="text-zinc-600 text-sm">${t("noPlayers")}</div>`;
+
+  document.getElementById("feed").innerHTML = S.orders.slice(0,50).map(o=>`
+    <div class="flex gap-2 text-zinc-300 border-b border-zinc-900 pb-1">
+      <span>${esc(o.emoji)}</span><span>${t("feedLine", esc(o.who), esc(o.item))}</span>
+      ${o.game?`<span class="text-zinc-500">${t("whilePlaying", esc(o.game))}</span>`:""}
+      <span class="ml-auto text-zinc-600">${new Date(o.ts).toLocaleTimeString().slice(0,5)}</span>
+    </div>`).join("") || `<div class="text-zinc-600">${t("noOrders")}</div>`;
+}
+
+/* ---------- actions ---------- */
+const post = (u,b) => fetch(u,{method:"POST",body:JSON.stringify(b)});
+async function order(itemId){ const r = await post("/api/order",{who:me,itemId}); if(!r.ok) playSound("🎺 SAD TROMBONE"); }
+function blast(sound){ post("/api/play",{sound,who:me}); }
+function roulette(){
+  const pool = Object.keys(synths).filter(k=>k!=="💧").concat(S.sounds.map(s=>s.file));
+  post("/api/roulette",{who:me,pool});
+}
+function score(name,delta){ post("/api/score",{name,delta}); }
+function addPlayer(){ const n=document.getElementById("npName").value.trim(); if(n) post("/api/players",{name:n}); document.getElementById("npName").value=""; }
+function addItem(){ post("/api/items",{ emoji:niEmoji.value||"🍴", name:niName.value.trim()||"snack", stock:+niStock.value||0 }); niName.value=niStock.value=""; }
+function setStock(id,v){ const i=S.items.find(x=>x.id===id); post("/api/items",{...i,stock:+v}); }
+function delItem(id){ fetch("/api/items?id="+id,{method:"DELETE"}); }
+async function uploadSound(inp){
+  const f = inp.files[0]; if(!f) return;
+  upstat.textContent = t("uploading");
+  const r = await fetch("/api/sounds?name="+encodeURIComponent(f.name),{method:"POST",body:f});
+  upstat.textContent = r.ok ? t("added") : "✗ " + (await r.json()).error;
+  inp.value = "";
+}
+
+/* ---------- steam ---------- */
+async function pollSteam(){
+  try {
+    const d = await fetch("/api/steam").then(r=>r.json());
+    if (!d.configured) return;
+    const el = document.getElementById("steam");
+    if (!d.players?.length) { el.textContent = t("noSteamData"); return; }
+    el.innerHTML = `<div class="grid gap-3 md:grid-cols-3">` + d.players.map(p=>`
+      <div class="rounded-lg overflow-hidden border ${p.playing?'border-[--gx]':'border-zinc-800'}">
+        ${p.banner?`<img src="${p.banner}" class="w-full" alt="">`:""}
+        <div class="p-3 flex gap-3 items-center">
+          <img src="${p.avatar}" class="w-10 h-10 rounded" alt="">
+          <div class="text-sm">
+            <b>${esc(p.name)}</b>
+            <div class="${p.playing?'text-[--gx] crt font-bold':'text-zinc-500'}">
+              ${p.playing ? "▶ " + esc(p.playing) : t("idle")}</div>
+            ${p.playing && S.gameDrinks[p.playing] ? `<div class="text-xs text-[--cyan]">${t("drinksGame", S.gameDrinks[p.playing])}</div>`:""}
+            ${p.recent.map(g=>`<div class="text-xs text-zinc-500">${t("recentLine", esc(g.name), g.hoursTotal, g.hours2w)}</div>`).join("")}
+          </div>
+        </div>
+      </div>`).join("") + `</div>`;
+  } catch {}
+}
+pollSteam(); setInterval(pollSteam, 60000);
+
+/* ---------- world cup ---------- */
+let WC = null;
+const cd = ms => {
+  if (ms < 0) return "00:00:00";
+  const s = Math.floor(ms/1000), d = Math.floor(s/86400);
+  const pad = n => String(n).padStart(2,"0");
+  return (d ? d + "d " : "") + pad(Math.floor(s%86400/3600)) + ":" + pad(Math.floor(s%3600/60)) + ":" + pad(s%60);
+};
+const matchTime = g => new Date(g.date).toLocaleString([], {weekday:"short", hour:"2-digit", minute:"2-digit"});
+const wcNext = () => WC?.games.find(g => g.state === "pre" && new Date(g.date) > Date.now());
+
+function renderWC(){
+  const el = document.getElementById("wc");
+  if (!WC?.games?.length) { el.textContent = t("wcNone"); return; }
+  const live = WC.games.filter(g => g.state === "in");
+  const next = wcNext();
+  const upcoming = WC.games.filter(g => g.state === "pre" && g !== next && new Date(g.date) > Date.now()).slice(0,3);
+  const flagged = (g, side) => `<img src="${g[side].flag}" class="w-6 inline" alt=""> <b class="text-zinc-200">${esc(g[side].name)}</b>`;
+
+  let html = live.map(g => `
+    <div class="flex flex-wrap items-center gap-3 py-1">
+      <span class="text-[--gx] crt font-bold text-xs border border-[--gx] rounded px-1.5">● ${t("wcLive")} ${esc(g.clock)}</span>
+      ${flagged(g,"home")}
+      <span class="text-[--gx] crt font-bold text-2xl">${esc(g.home.score)} : ${esc(g.away.score)}</span>
+      ${flagged(g,"away")}
+      <span class="text-zinc-600 text-xs">${esc(g.venue)}</span>
+    </div>`).join("");
+
+  if (next) html += `
+    <div class="flex flex-wrap items-center gap-3 py-1 ${live.length?'border-t border-zinc-800 mt-1 pt-2':''}">
+      <span class="text-zinc-400">${t("wcUpNext")}:</span>
+      ${flagged(next,"home")} <span class="text-zinc-500">vs</span> ${flagged(next,"away")}
+      <span id="wcCount" class="text-[--cyan] crt font-mono text-xl">${cd(new Date(next.date)-Date.now())}</span>
+      <span class="text-zinc-600 text-xs">${matchTime(next)} · ${esc(next.venue)}</span>
+    </div>`;
+
+  if (upcoming.length) html += `<div class="text-zinc-500 text-xs mt-1">${t("wcMore")}: ` +
+    upcoming.map(g => `${esc(g.home.name)}–${esc(g.away.name)} (${matchTime(g)})`).join(" · ") + `</div>`;
+
+  el.innerHTML = html || t("wcNone");
+}
+setInterval(() => {
+  const el = document.getElementById("wcCount"), n = wcNext();
+  if (el && n) el.textContent = cd(new Date(n.date) - Date.now());
+}, 1000);
+async function pollWC(){ try { WC = await fetch("/api/worldcup").then(r=>r.json()); renderWC(); } catch{} }
+pollWC(); setInterval(pollWC, 45000);
+</script>
+</body>
+</html>

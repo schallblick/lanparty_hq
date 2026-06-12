@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>LAN PARTY HQ — TV</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;700&family=VT323&display=swap" rel="stylesheet" />
+<style>
+  :root { --gx:#fa1e4e; --cyan:#00f0ff; --mag:#ff2ad4; }
+  body { background:#0a0a12; color:#e8e8f0; font-family:"Chakra Petch",sans-serif; overflow:hidden; cursor:none; }
+  body::after { content:""; position:fixed; inset:0; pointer-events:none;
+    background:repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,.18) 2px 4px); }
+  .glitch { font-family:"VT323",monospace; letter-spacing:.08em;
+    background:linear-gradient(90deg,var(--gx),var(--mag),var(--cyan));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 0 14px rgba(250,30,78,.6)); }
+  .crt { text-shadow:0 0 10px currentColor; }
+  .panel { position:fixed; inset:0; padding:5vh 6vw; opacity:0; transition:opacity .8s; pointer-events:none; }
+  .panel.on { opacity:1; }
+  .panel h2 { font-family:"VT323",monospace; font-size:5vh; letter-spacing:.12em;
+    color:var(--cyan); text-shadow:0 0 12px rgba(0,240,255,.8); margin-bottom:3vh; }
+</style>
+</head>
+<body>
+
+<div class="fixed top-3 left-6 glitch text-4xl z-10">LAN PARTY HQ</div>
+<div id="clock" class="fixed top-4 right-6 text-2xl text-zinc-500 z-10 font-mono"></div>
+
+<div id="p-board" class="panel"><h2 data-i18n="leaderboard"></h2><div id="board" class="space-y-[2vh]"></div></div>
+<div id="p-feed" class="panel"><h2 data-i18n="orderFeed"></h2><div id="feed" class="space-y-[1.2vh] text-[3vh]"></div></div>
+<div id="p-steam" class="panel"><h2 data-i18n="nowPlaying"></h2><div id="steam" class="grid gap-[2vh] grid-cols-3"></div></div>
+<div id="p-wc" class="panel"><h2>⚽ <span data-i18n="wcTitle"></span></h2><div id="wc" class="text-[4vh]"></div></div>
+
+<script src="/i18n.js"></script>
+<script>
+applyI18n();
+let S = { players:[], orders:[], gameDrinks:{} };
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+
+const es = new EventSource("/api/events?name=TV");
+es.addEventListener("state", e => { S = JSON.parse(e.data); render(); });
+es.addEventListener("hydrate", () => hydrate());
+
+function render(){
+  const sorted = [...S.players].sort((a,b)=>b.score-a.score).slice(0,8);
+  document.getElementById("board").innerHTML = sorted.map((p,i)=>`
+    <div class="flex items-center gap-[2vw] text-[5vh]">
+      <span class="w-[6vw] text-center ${i===0?'text-yellow-400 crt':'text-zinc-600'}">${i===0?'👑':i+1}</span>
+      <b class="flex-1">${esc(p.name)}</b>
+      <span class="text-[--mag] crt font-bold">${p.score}</span>
+    </div>`).join("");
+
+  document.getElementById("feed").innerHTML = S.orders.slice(0,10).map(o=>`
+    <div class="flex gap-[1vw] items-baseline">
+      <span class="text-[4vh]">${esc(o.emoji)}</span>
+      <span>${t("feedLine", esc(o.who), esc(o.item))}</span>
+      ${o.game?`<span class="text-zinc-500 text-[2.2vh]">(${esc(o.game)})</span>`:""}
+      <span class="ml-auto text-zinc-600 text-[2.2vh]">${new Date(o.ts).toLocaleTimeString().slice(0,5)}</span>
+    </div>`).join("") || `<div class="text-zinc-600">${t("noOrders")}</div>`;
+}
+
+async function pollSteam(){
+  try {
+    const d = await fetch("/api/steam").then(r=>r.json());
+    const el = document.getElementById("steam");
+    if (!d.configured || !d.players?.length) {
+      el.innerHTML = `<div class="text-zinc-600 text-[3vh] col-span-3">${t("steamNotConf")}</div>`; return;
+    }
+    el.innerHTML = d.players.map(p=>`
+      <div class="rounded-xl overflow-hidden border ${p.playing?'border-[--gx]':'border-zinc-800'}">
+        ${p.banner?`<img src="${p.banner}" class="w-full">`:""}
+        <div class="p-[2vh]">
+          <b class="text-[3.2vh]">${esc(p.name)}</b>
+          <div class="text-[2.8vh] ${p.playing?'text-[--gx] crt font-bold':'text-zinc-500'}">
+            ${p.playing ? "▶ " + esc(p.playing) : t("idle")}</div>
+          ${p.playing && S.gameDrinks[p.playing] ? `<div class="text-[2.2vh] text-[--cyan]">${t("drinksGameShort", S.gameDrinks[p.playing])}</div>`:""}
+          ${p.recent.slice(0,2).map(g=>`<div class="text-[2vh] text-zinc-500">${t("recentLineShort", esc(g.name), g.hoursTotal)}</div>`).join("")}
+        </div>
+      </div>`).join("");
+  } catch {}
+}
+pollSteam(); setInterval(pollSteam, 60000);
+
+function hydrate(){
+  const o = document.createElement("div");
+  o.style.cssText = "position:fixed;inset:0;z-index:50;background:rgba(8,40,50,.95);display:flex;align-items:center;justify-content:center;text-align:center";
+  o.innerHTML = `<div><div style="font-size:14vh">💧</div>
+    <div class="glitch" style="font-size:10vh">${t("hydrateTitle")}</div>
+    <div class="crt" style="font-size:4vh;color:var(--cyan)">${t("hydrateSub")}</div></div>`;
+  document.body.appendChild(o);
+  setTimeout(()=>o.remove(), 30000);
+}
+
+/* ---------- world cup ---------- */
+let WC = null;
+const cd = ms => {
+  if (ms < 0) return "00:00:00";
+  const s = Math.floor(ms/1000), d = Math.floor(s/86400);
+  const pad = n => String(n).padStart(2,"0");
+  return (d ? d + "d " : "") + pad(Math.floor(s%86400/3600)) + ":" + pad(Math.floor(s%3600/60)) + ":" + pad(s%60);
+};
+const wcNext = () => WC?.games.find(g => g.state === "pre" && new Date(g.date) > Date.now());
+function renderWC(){
+  const el = document.getElementById("wc");
+  if (!WC?.games?.length) { el.innerHTML = `<div class="text-zinc-600">${t("wcNone")}</div>`; return; }
+  const live = WC.games.filter(g => g.state === "in");
+  const next = wcNext();
+  let html = live.map(g => `
+    <div class="flex items-center gap-[2vw] py-[1vh]">
+      <span class="text-[--gx] crt font-bold text-[2.5vh] border border-[--gx] rounded px-[0.6vw]">● ${t("wcLive")} ${esc(g.clock)}</span>
+      <img src="${g.home.flag}" style="height:6vh"> <b>${esc(g.home.name)}</b>
+      <span class="text-[--gx] crt font-bold text-[8vh]">${esc(g.home.score)} : ${esc(g.away.score)}</span>
+      <b>${esc(g.away.name)}</b> <img src="${g.away.flag}" style="height:6vh">
+    </div>`).join("");
+  if (next) html += `
+    <div class="flex items-center gap-[2vw] py-[1vh] ${live.length?'border-t border-zinc-800':''}">
+      <span class="text-zinc-500 text-[3vh]">${t("wcUpNext")}:</span>
+      <img src="${next.home.flag}" style="height:5vh"> <b>${esc(next.home.name)}</b>
+      <span class="text-zinc-500">vs</span>
+      <b>${esc(next.away.name)}</b> <img src="${next.away.flag}" style="height:5vh">
+      <span id="wcCount" class="text-[--cyan] crt font-mono text-[7vh] ml-[2vw]">${cd(new Date(next.date)-Date.now())}</span>
+    </div>`;
+  el.innerHTML = html || `<div class="text-zinc-600">${t("wcNone")}</div>`;
+}
+setInterval(() => {
+  const el = document.getElementById("wcCount"), n = wcNext();
+  if (el && n) el.textContent = cd(new Date(n.date) - Date.now());
+}, 1000);
+async function pollWC(){ try { WC = await fetch("/api/worldcup").then(r=>r.json()); renderWC(); } catch{} }
+pollWC(); setInterval(pollWC, 45000);
+
+const panels = ["p-board","p-feed","p-steam","p-wc"];
+let cur = 0;
+function rotate(){
+  panels.forEach((id,i)=>document.getElementById(id).classList.toggle("on", i===cur));
+  cur = (cur+1) % panels.length;
+}
+rotate(); setInterval(rotate, 12000);
+setInterval(()=>document.getElementById("clock").textContent = new Date().toLocaleTimeString().slice(0,5), 1000);
+</script>
+</body>
+</html>
