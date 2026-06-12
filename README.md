@@ -1,5 +1,8 @@
 # LAN PARTY HQ
 
+![AI-Generated License Badge](vibe-coded-badge.svg)
+
+
 A self-hosted dashboard for LAN parties. One person runs the server; everyone
 else opens a URL on the local network. Dark neon CRT aesthetic, live-synced
 across all devices.
@@ -76,3 +79,13 @@ player's SteamID64 at <https://steamid.io>, and set each profile's
 ## License
 
 MIT
+
+## 🤖 AI Transparency
+
+This project this code was ai-generated.
+
+- **AI Model**: Anthropic Claude Fable 5
+- **License**: MIT
+- **Human Contributor**: schallblick
+
+We believe in transparency about AI usage in software development.
