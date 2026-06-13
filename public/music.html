@@ -108,7 +108,11 @@ function onYouTubeIframeAPIReady() {
         if (e.data === YT.PlayerState.ENDED) {
           fetch("/api/music/skip", { method:"POST" });
         }
-        if (e.data === YT.PlayerState.PLAYING) lastIsPlaying = true;
+        if (e.data === YT.PlayerState.PLAYING) {
+          ytPlayer.unMute();
+          ytPlayer.setVolume(100);
+          lastIsPlaying = true;
+        }
         if (e.data === YT.PlayerState.PAUSED) lastIsPlaying = false;
       },
     },
@@ -122,8 +126,13 @@ function loadVideo(videoId, autoplay) {
   }
   lastVideoId = videoId;
   lastIsPlaying = !!autoplay;
-  if (autoplay) ytPlayer.loadVideoById(videoId);
-  else ytPlayer.cueVideoById(videoId);
+  if (autoplay) {
+    ytPlayer.unMute();
+    ytPlayer.setVolume(100);
+    ytPlayer.loadVideoById(videoId);
+  } else {
+    ytPlayer.cueVideoById(videoId);
+  }
 }
 
 /* SSE */
@@ -151,8 +160,13 @@ es.addEventListener("state", e => {
     }
   } else if (newIsPlaying !== lastIsPlaying) {
     lastIsPlaying = newIsPlaying;
-    if (newIsPlaying) ytPlayer?.playVideo?.();
-    else ytPlayer?.pauseVideo?.();
+    if (newIsPlaying) {
+      ytPlayer?.unMute?.();
+      ytPlayer?.setVolume?.(100);
+      ytPlayer?.playVideo?.();
+    } else {
+      ytPlayer?.pauseVideo?.();
+    }
   }
 });
 
