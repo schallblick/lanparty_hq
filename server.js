@@ -28,8 +28,17 @@ let state = {
   players: [],           // {name,score}
   sounds: [],            // uploaded: {id,name,file}
   gameDrinks: {},        // {gameName: count}
+  music: { queue: [], current: null, isPlaying: false },
 };
 try { state = { ...state, ...JSON.parse(fs.readFileSync(DATA, "utf8")) }; } catch {}
+
+// ---------- youtube url helper ----------
+function ytId(url) {
+  const s = (url || "").trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(s)) return s;
+  const m = s.match(/(?:youtube\.com\/watch\?.*v=|youtu\.be\/|youtube\.com\/embed\/|music\.youtube\.com\/watch\?.*v=)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
 
 let saveTimer = null;
 function save() {
@@ -226,6 +235,50 @@ http.createServer(async (req, res) => {
 
     if (p === "/api/hydrate" && req.method === "POST") { // manual trigger / test
       broadcast("hydrate", {});
+      return send(res, 200, { ok: true });
+    }
+
+    // ---------- music jukebox ----------
+    if (p === "/api/music/queue" && req.method === "POST") {
+      const { url, title, addedBy } = JSON.parse(await body(req));
+      const videoId = ytId(url);
+      if (!videoId) return send(res, 400, { error: "invalid YouTube URL" });
+      const track = {
+        id: crypto.randomUUID().slice(0, 8),
+        videoId,
+        title: (String(title || "").slice(0, 120)) || "YouTube Video",
+        addedBy: (String(addedBy || "anon")).slice(0, 20),
+      };
+      if (!state.music.current) {
+        state.music.current = track;
+        state.music.isPlaying = true;
+      } else {
+        state.music.queue.push(track);
+      }
+      save(); sync();
+      return send(res, 200, { ok: true });
+    }
+    if (p === "/api/music/queue" && req.method === "DELETE") {
+      const id = url.searchParams.get("id");
+      state.music.queue = state.music.queue.filter(t => t.id !== id);
+      save(); sync();
+      return send(res, 200, { ok: true });
+    }
+    if (p === "/api/music/skip" && req.method === "POST") {
+      state.music.current = state.music.queue.shift() || null;
+      state.music.isPlaying = !!state.music.current;
+      save(); sync();
+      return send(res, 200, { ok: true });
+    }
+    if (p === "/api/music/play" && req.method === "POST") {
+      const { playing } = JSON.parse(await body(req));
+      state.music.isPlaying = !!playing;
+      save(); sync();
+      return send(res, 200, { ok: true });
+    }
+    if (p === "/api/music/clear" && req.method === "POST") {
+      state.music = { queue: [], current: null, isPlaying: false };
+      save(); sync();
       return send(res, 200, { ok: true });
     }
 

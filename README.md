@@ -25,7 +25,14 @@ Tailwind is loaded via the Play CDN.
   with whatever was running when placed).
 - **World Cup panel** — live scores with match clock and a ticking countdown
   to the next kickoff (ESPN public scoreboard, no key required).
-- **TV mode** (`/tv.html`) — auto-rotating fullscreen panels for a big screen.
+- **Jukebox** — shared YouTube / YouTube Music queue. Anyone on the LAN adds songs
+  by pasting a URL into the music panel; the queue, now-playing info, and controls
+  are visible to everyone. Open `/music.html` on the device connected to the party
+  speakers — it auto-plays each track via the YouTube IFrame API and advances the
+  queue automatically when a track ends. Play/pause and skip work from any device.
+  No API key required.
+- **TV mode** (`/tv.html`) — auto-rotating fullscreen panels for a big screen
+  (includes a now-playing panel for the jukebox).
 - **Night recap** (`/recap.html`) — per-person stats, awards, and order-pace
   sparklines.
 - **Hydration reminders** — periodic full-screen overlay on all devices.
@@ -67,7 +74,8 @@ player's SteamID64 at <https://steamid.io>, and set each profile's
 ## Notes
 
 - The soundboard requires one tap on the entry overlay per device (browser
-  autoplay policy) before audio can play.
+  autoplay policy) before audio can play. The music player (`/music.html`) has
+  the same requirement — tap the activation screen once before tracks start playing.
 - Internet access is needed for the Tailwind/font CDNs, Steam, and World Cup
   data; everything else runs entirely on your LAN.
 - The World Cup panel uses ESPN's unofficial public scoreboard API. It is

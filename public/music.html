@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LAN PARTY HQ — Music Player</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;700&family=VT323&display=swap" rel="stylesheet" />
+<style>
+  :root { --gx:#fa1e4e; --cyan:#00f0ff; --mag:#ff2ad4; --bg:#0a0a12; }
+  body { background:var(--bg); color:#e8e8f0; font-family:"Chakra Petch",sans-serif; overflow:hidden; }
+  body::after { content:""; position:fixed; inset:0; pointer-events:none; z-index:1;
+    background:repeating-linear-gradient(0deg, transparent 0 2px, rgba(0,0,0,.18) 2px 4px); }
+  .glitch { font-family:"VT323",monospace; letter-spacing:.08em;
+    background:linear-gradient(90deg,var(--gx),var(--mag),var(--cyan));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+    filter:drop-shadow(0 0 14px rgba(250,30,78,.6)); }
+  .crt { text-shadow:0 0 10px currentColor; }
+  @media (prefers-reduced-motion:no-preference) {
+    .pulse { animation:pulse 2.4s ease-in-out infinite; }
+    @keyframes pulse { 50% { filter:drop-shadow(0 0 18px rgba(255,42,212,.9)); } }
+  }
+  #yt-player { position:fixed; bottom:0; right:0; width:1px; height:1px; opacity:.01; pointer-events:none; }
+</style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+<!-- arm overlay -->
+<div id="arm" class="fixed inset-0 z-50 bg-black/90 flex items-center justify-center cursor-pointer text-center px-6">
+  <div>
+    <div class="glitch text-6xl pulse mb-6" data-i18n="musicArmTitle"></div>
+    <div class="text-cyan-300 crt text-xl font-bold border border-cyan-400 rounded px-8 py-4 inline-block mb-4">▶ TAP TO ACTIVATE</div>
+    <p class="text-zinc-500 text-sm max-w-sm mx-auto" data-i18n="musicArmSub"></p>
+  </div>
+</div>
+
+<!-- header -->
+<div class="flex items-center justify-between px-5 py-3 border-b border-zinc-800 bg-[#0a0a12ee] z-10 relative">
+  <a href="/" class="glitch text-2xl">LAN PARTY HQ</a>
+  <span id="conn" class="text-xs text-zinc-500"></span>
+  <span class="flex border border-zinc-700 rounded overflow-hidden text-xs font-bold">
+    <button data-lang="en" onclick="setLang('en')" class="px-2 py-1">EN</button>
+    <button data-lang="de" onclick="setLang('de')" class="px-2 py-1">DE</button>
+    <button data-lang="ch" onclick="setLang('ch')" class="px-2 py-1">CH</button>
+  </span>
+</div>
+
+<!-- main display -->
+<div class="flex-1 flex flex-col items-center justify-center relative z-10 px-6 py-8 text-center">
+  <div id="mp-status" class="text-xs text-[--gx] crt font-bold tracking-widest mb-4" data-i18n="musicNowPlaying"></div>
+  <div id="mp-thumb" class="mb-6"></div>
+  <div id="mp-title" class="glitch text-5xl leading-tight mb-3 max-w-3xl">—</div>
+  <div id="mp-by" class="text-zinc-500 text-sm mb-6"></div>
+
+  <!-- controls -->
+  <div id="mp-controls" class="flex gap-3 mb-6">
+    <button id="mp-play-btn" onclick="mpPlay()"
+      class="border border-[--cyan] text-[--cyan] rounded px-6 py-2 font-bold hover:bg-[--cyan] hover:text-black transition-colors">▶</button>
+    <button onclick="mpSkip()"
+      class="border border-[--gx] text-[--gx] rounded px-6 py-2 font-bold hover:bg-[--gx] hover:text-black transition-colors">SKIP ⏭</button>
+  </div>
+
+  <!-- queue -->
+  <div id="mp-queue" class="text-zinc-700 text-sm"></div>
+</div>
+
+<!-- hidden YouTube iframe target -->
+<div id="yt-player"></div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script src="/i18n.js"></script>
+<script>
+applyI18n();
+
+let ytPlayer = null;
+let pendingLoad = null;
+let lastVideoId = null;
+let lastIsPlaying = false;
+let armed = false;
+
+let S = { music: { queue:[], current:null, isPlaying:false } };
+
+/* arm */
+document.getElementById("arm").addEventListener("click", () => {
+  armed = true;
+  document.getElementById("arm").remove();
+  const m = S.music || {};
+  if (m.current) {
+    loadVideo(m.current.videoId, m.isPlaying);
+    lastVideoId = m.current.videoId;
+    lastIsPlaying = m.isPlaying;
+  }
+});
+
+/* YouTube IFrame API ready callback (global, called by YT script) */
+function onYouTubeIframeAPIReady() {
+  ytPlayer = new YT.Player("yt-player", {
+    width: 1, height: 1,
+    playerVars: { autoplay: 0, controls: 0, disablekb: 1, fs: 0, rel: 0 },
+    events: {
+      onReady: () => {
+        if (pendingLoad) {
+          const pl = pendingLoad; pendingLoad = null;
+          loadVideo(pl.videoId, pl.autoplay);
+        }
+      },
+      onStateChange: e => {
+        if (e.data === YT.PlayerState.ENDED) {
+          fetch("/api/music/skip", { method:"POST" });
+        }
+        if (e.data === YT.PlayerState.PLAYING) lastIsPlaying = true;
+        if (e.data === YT.PlayerState.PAUSED) lastIsPlaying = false;
+      },
+    },
+  });
+}
+
+function loadVideo(videoId, autoplay) {
+  if (!ytPlayer || typeof ytPlayer.loadVideoById !== "function") {
+    pendingLoad = { videoId, autoplay };
+    return;
+  }
+  lastVideoId = videoId;
+  lastIsPlaying = !!autoplay;
+  if (autoplay) ytPlayer.loadVideoById(videoId);
+  else ytPlayer.cueVideoById(videoId);
+}
+
+/* SSE */
+const es = new EventSource("/api/events?name=MusicPlayer");
+es.onopen = () => document.getElementById("conn").textContent = "● LIVE";
+es.onerror = () => document.getElementById("conn").textContent = "○ reconnecting…";
+
+es.addEventListener("state", e => {
+  const newS = JSON.parse(e.data);
+  const newVideoId = newS.music?.current?.videoId || null;
+  const newIsPlaying = newS.music?.isPlaying || false;
+
+  S = newS;
+  updateDisplay();
+
+  if (!armed) return;
+
+  if (newVideoId !== lastVideoId) {
+    lastVideoId = newVideoId;
+    if (newVideoId) {
+      loadVideo(newVideoId, newIsPlaying);
+    } else {
+      if (ytPlayer?.stopVideo) ytPlayer.stopVideo();
+      lastIsPlaying = false;
+    }
+  } else if (newIsPlaying !== lastIsPlaying) {
+    lastIsPlaying = newIsPlaying;
+    if (newIsPlaying) ytPlayer?.playVideo?.();
+    else ytPlayer?.pauseVideo?.();
+  }
+});
+
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/"/g,"&quot;");
+
+function updateDisplay() {
+  const m = S.music || {};
+  const cur = m.current;
+  const thumb = document.getElementById("mp-thumb");
+  const title = document.getElementById("mp-title");
+  const by = document.getElementById("mp-by");
+  const queue = document.getElementById("mp-queue");
+  const playBtn = document.getElementById("mp-play-btn");
+  const status = document.getElementById("mp-status");
+  const controls = document.getElementById("mp-controls");
+
+  if (cur) {
+    status.textContent = m.isPlaying ? "▶ " + t("musicNowPlaying") : "⏸ " + t("musicPaused");
+    thumb.innerHTML = `
+      <img src="https://img.youtube.com/vi/${esc(cur.videoId)}/maxresdefault.jpg"
+           onerror="this.src='https://img.youtube.com/vi/${esc(cur.videoId)}/hqdefault.jpg'"
+           style="max-height:45vh;max-width:90vw;border-radius:1rem;box-shadow:0 0 40px rgba(250,30,78,.35),0 0 80px rgba(0,240,255,.1)"
+           alt="">`;
+    title.textContent = cur.title;
+    by.textContent = t("musicBy", cur.addedBy);
+    controls.style.display = "";
+    if (playBtn) playBtn.textContent = m.isPlaying ? "⏸" : "▶";
+    const qLen = m.queue?.length || 0;
+    queue.innerHTML = m.queue.slice(0, 3).map((tr, i) =>
+      `<span class="text-zinc-700">${i+1}. ${esc(tr.title.slice(0,40))}</span>`
+    ).join(" · ") + (qLen > 3 ? ` <span class="text-zinc-700">+${qLen-3} more</span>` : "");
+    if (!qLen) queue.textContent = t("musicQueueEmpty");
+  } else {
+    status.textContent = "";
+    thumb.innerHTML = `<div style="font-size:15vh;line-height:1">🎵</div>`;
+    title.textContent = "QUEUE IS EMPTY";
+    by.textContent = "add songs from the main app";
+    controls.style.display = "none";
+    queue.textContent = "";
+  }
+}
+
+function mpPlay() {
+  const m = S.music || {};
+  if (!m.current) return;
+  fetch("/api/music/play", { method:"POST", body: JSON.stringify({ playing: !m.isPlaying }) });
+}
+function mpSkip() {
+  fetch("/api/music/skip", { method:"POST" });
+}
+
+updateDisplay();
+</script>
+</body>
+</html>

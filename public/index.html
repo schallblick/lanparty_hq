@@ -60,6 +60,7 @@
     </span>
     <a href="/tv.html" class="cyan-btn rounded px-3 py-1 text-sm font-bold">📺 TV</a>
     <a href="/recap.html" class="cyan-btn rounded px-3 py-1 text-sm font-bold">📊 RECAP</a>
+    <a href="/music.html" target="_blank" class="cyan-btn rounded px-3 py-1 text-sm font-bold" data-i18n="musicOpenPlayer"></a>
     <button onclick="toggleAdmin()" class="cyan-btn rounded px-3 py-1 text-sm font-bold" data-i18n="admin"></button>
   </div>
 </header>
@@ -107,6 +108,25 @@
       <input id="npName" data-i18n-ph="addPlayer" class="flex-1" />
       <button onclick="addPlayer()" class="cyan-btn rounded px-3 font-bold">+</button>
     </div>
+  </section>
+
+  <section class="panel p-4 lg:col-span-3">
+    <div class="flex items-center justify-between mb-3">
+      <h2 data-i18n="musicTitle"></h2>
+      <a href="/music.html" target="_blank" class="cyan-btn rounded px-3 py-1 text-xs font-bold" data-i18n="musicOpenPlayer"></a>
+    </div>
+    <div id="music-current" class="mb-3"></div>
+    <div class="flex flex-wrap gap-2 mb-3">
+      <button id="musicPlayBtn" onclick="musicPlay()" class="cyan-btn rounded px-4 py-1.5 text-sm font-bold">▶</button>
+      <button onclick="musicSkip()" class="neon-btn rounded px-4 py-1.5 text-sm font-bold" data-i18n="musicSkip"></button>
+      <button onclick="musicClear()" class="text-zinc-600 hover:text-zinc-400 text-sm px-2 border border-zinc-700 rounded" data-i18n="musicClear"></button>
+    </div>
+    <div id="music-queue" class="mb-3 space-y-1 max-h-44 overflow-y-auto"></div>
+    <div class="flex gap-2 pt-3 border-t border-zinc-800">
+      <input id="musicUrl" data-i18n-ph="musicUrlPh" class="flex-1" onkeydown="if(event.key==='Enter')musicAdd()" />
+      <button onclick="musicAdd()" class="cyan-btn rounded px-3 font-bold">+</button>
+    </div>
+    <div id="musicStatus" class="text-xs text-zinc-500 mt-1 h-4"></div>
   </section>
 
   <section class="panel p-4 lg:col-span-3">
@@ -164,7 +184,7 @@ function playSound(s){
 }
 
 /* ---------- live state ---------- */
-let S = { items:[], orders:[], players:[], sounds:[], gameDrinks:{} };
+let S = { items:[], orders:[], players:[], sounds:[], gameDrinks:{}, music: { queue:[], current:null, isPlaying:false } };
 const es = new EventSource("/api/events?name=" + encodeURIComponent(me));
 es.addEventListener("state", e => { S = JSON.parse(e.data); render(); });
 es.addEventListener("play", e => { const {sound,who}=JSON.parse(e.data); playSound(sound); flash(who); });
@@ -230,6 +250,37 @@ function render(){
       ${o.game?`<span class="text-zinc-500">${t("whilePlaying", esc(o.game))}</span>`:""}
       <span class="ml-auto text-zinc-600">${new Date(o.ts).toLocaleTimeString().slice(0,5)}</span>
     </div>`).join("") || `<div class="text-zinc-600">${t("noOrders")}</div>`;
+
+  const m = S.music || { queue:[], current:null, isPlaying:false };
+  const curEl = document.getElementById("music-current");
+  if (m.current) {
+    curEl.innerHTML = `
+      <div class="flex gap-3 items-center">
+        <img src="https://img.youtube.com/vi/${esc(m.current.videoId)}/mqdefault.jpg"
+             class="w-24 h-16 object-cover rounded border border-zinc-700 flex-shrink-0" alt="">
+        <div class="flex-1 min-w-0">
+          <div class="font-bold text-sm truncate text-[--cyan] crt">${esc(m.current.title)}</div>
+          <div class="text-zinc-500 text-xs mt-0.5">${t("musicBy", esc(m.current.addedBy))}</div>
+          <div class="text-zinc-600 text-xs mt-1">${m.isPlaying ? t("musicPlaying") : t("musicPaused")}</div>
+        </div>
+      </div>`;
+  } else {
+    curEl.innerHTML = `<div class="text-zinc-600 text-sm">${t("musicEmpty")}</div>`;
+  }
+  const playBtn = document.getElementById("musicPlayBtn");
+  if (playBtn) playBtn.textContent = m.isPlaying ? "⏸" : "▶";
+
+  document.getElementById("music-queue").innerHTML = m.queue.length
+    ? m.queue.map((tr, i) => `
+        <div class="flex items-center gap-2 text-sm border-b border-zinc-900 pb-1">
+          <span class="text-zinc-600 w-5 text-center flex-shrink-0">${i+1}</span>
+          <img src="https://img.youtube.com/vi/${esc(tr.videoId)}/default.jpg"
+               class="w-10 h-7 object-cover rounded flex-shrink-0" alt="">
+          <span class="flex-1 truncate">${esc(tr.title)}</span>
+          <span class="text-zinc-600 text-xs flex-shrink-0">${esc(tr.addedBy)}</span>
+          <button onclick="musicRemove('${esc(tr.id)}')" class="text-zinc-700 hover:text-red-500 px-1 flex-shrink-0">✕</button>
+        </div>`).join("")
+    : `<div class="text-zinc-700 text-xs">${t("musicQueueEmpty")}</div>`;
 }
 
 /* ---------- actions ---------- */
@@ -245,6 +296,44 @@ function addPlayer(){ const n=document.getElementById("npName").value.trim(); if
 function addItem(){ post("/api/items",{ emoji:niEmoji.value||"🍴", name:niName.value.trim()||"snack", stock:+niStock.value||0 }); niName.value=niStock.value=""; }
 function setStock(id,v){ const i=S.items.find(x=>x.id===id); post("/api/items",{...i,stock:+v}); }
 function delItem(id){ fetch("/api/items?id="+id,{method:"DELETE"}); }
+/* ---------- music jukebox ---------- */
+function extractYtId(url) {
+  const s = (url || "").trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(s)) return s;
+  const m = s.match(/(?:youtube\.com\/watch\?.*v=|youtu\.be\/|youtube\.com\/embed\/|music\.youtube\.com\/watch\?.*v=)([a-zA-Z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+async function musicAdd() {
+  const urlInput = document.getElementById("musicUrl");
+  const statusEl = document.getElementById("musicStatus");
+  const raw = urlInput.value.trim();
+  if (!raw) return;
+  const videoId = extractYtId(raw);
+  if (!videoId) { statusEl.textContent = t("musicInvalidUrl"); return; }
+  statusEl.textContent = t("musicFetching");
+  let title = "YouTube Video";
+  try {
+    const oe = await fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`).then(r=>r.json());
+    if (oe.title) title = oe.title;
+  } catch {}
+  const r = await post("/api/music/queue", { url: raw, title, addedBy: me });
+  if (r.ok) {
+    statusEl.textContent = t("musicAdded", title.slice(0, 50));
+    urlInput.value = "";
+    setTimeout(() => statusEl.textContent = "", 3000);
+  } else {
+    statusEl.textContent = "✗ " + (await r.json()).error;
+  }
+}
+function musicPlay() {
+  const m = S.music || {};
+  if (!m.current) return;
+  post("/api/music/play", { playing: !m.isPlaying });
+}
+function musicSkip() { post("/api/music/skip", {}); }
+function musicRemove(id) { fetch("/api/music/queue?id=" + encodeURIComponent(id), { method:"DELETE" }); }
+function musicClear() { if (confirm("Clear the entire queue?")) post("/api/music/clear", {}); }
+
 async function uploadSound(inp){
   const f = inp.files[0]; if(!f) return;
   upstat.textContent = t("uploading");

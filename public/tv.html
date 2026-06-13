@@ -30,16 +30,42 @@
 <div id="p-feed" class="panel"><h2 data-i18n="orderFeed"></h2><div id="feed" class="space-y-[1.2vh] text-[3vh]"></div></div>
 <div id="p-steam" class="panel"><h2 data-i18n="nowPlaying"></h2><div id="steam" class="grid gap-[2vh] grid-cols-3"></div></div>
 <div id="p-wc" class="panel"><h2>⚽ <span data-i18n="wcTitle"></span></h2><div id="wc" class="text-[4vh]"></div></div>
+<div id="p-music" class="panel flex flex-col items-center justify-center text-center">
+  <h2 class="mb-[3vh]">🎵 <span data-i18n="musicTitle"></span></h2>
+  <div id="tv-music-thumb" class="mb-[3vh]"></div>
+  <div id="tv-music-title" class="text-[5vh] font-bold" style="font-family:'VT323',monospace;letter-spacing:.08em;background:linear-gradient(90deg,#fa1e4e,#ff2ad4,#00f0ff);-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 14px rgba(250,30,78,.6))"></div>
+  <div id="tv-music-by" class="text-[2.5vh] text-zinc-500 mt-[1vh]"></div>
+  <div id="tv-music-queue" class="text-[2vh] text-zinc-600 mt-[1.5vh]"></div>
+</div>
 
 <script src="/i18n.js"></script>
 <script>
 applyI18n();
-let S = { players:[], orders:[], gameDrinks:{} };
+let S = { players:[], orders:[], gameDrinks:{}, music:{ queue:[], current:null, isPlaying:false } };
 const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");
 
 const es = new EventSource("/api/events?name=TV");
-es.addEventListener("state", e => { S = JSON.parse(e.data); render(); });
+es.addEventListener("state", e => { S = JSON.parse(e.data); render(); renderMusic(); });
 es.addEventListener("hydrate", () => hydrate());
+
+function renderMusic() {
+  const m = S.music || {};
+  const cur = m.current;
+  if (cur) {
+    document.getElementById("tv-music-thumb").innerHTML =
+      `<img src="https://img.youtube.com/vi/${esc(cur.videoId)}/hqdefault.jpg"
+            style="max-height:40vh;border-radius:1.5vh;box-shadow:0 0 4vh rgba(250,30,78,.4)" alt="">`;
+    document.getElementById("tv-music-title").textContent = cur.title;
+    document.getElementById("tv-music-by").textContent = t("musicBy", cur.addedBy);
+    const qLen = m.queue?.length || 0;
+    document.getElementById("tv-music-queue").textContent = qLen ? t("musicInQueue", qLen) : t("musicQueueEmpty");
+  } else {
+    document.getElementById("tv-music-thumb").innerHTML = `<div style="font-size:15vh">🎵</div>`;
+    document.getElementById("tv-music-title").textContent = t("musicEmpty").split(" — ")[0];
+    document.getElementById("tv-music-by").textContent = "";
+    document.getElementById("tv-music-queue").textContent = "";
+  }
+}
 
 function render(){
   const sorted = [...S.players].sort((a,b)=>b.score-a.score).slice(0,8);
@@ -129,7 +155,7 @@ setInterval(() => {
 async function pollWC(){ try { WC = await fetch("/api/worldcup").then(r=>r.json()); renderWC(); } catch{} }
 pollWC(); setInterval(pollWC, 45000);
 
-const panels = ["p-board","p-feed","p-steam","p-wc"];
+const panels = ["p-board","p-feed","p-steam","p-wc","p-music"];
 let cur = 0;
 function rotate(){
   panels.forEach((id,i)=>document.getElementById(id).classList.toggle("on", i===cur));
