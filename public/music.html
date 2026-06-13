@@ -53,11 +53,20 @@
   <div id="mp-by" class="text-zinc-500 text-sm mb-6"></div>
 
   <!-- controls -->
-  <div id="mp-controls" class="flex gap-3 mb-6">
-    <button id="mp-play-btn" onclick="mpPlay()"
-      class="border border-[--cyan] text-[--cyan] rounded px-6 py-2 font-bold hover:bg-[--cyan] hover:text-black transition-colors">▶</button>
-    <button onclick="mpSkip()"
-      class="border border-[--gx] text-[--gx] rounded px-6 py-2 font-bold hover:bg-[--gx] hover:text-black transition-colors">SKIP ⏭</button>
+  <div id="mp-controls" class="flex flex-col items-center gap-3 mb-6">
+    <div class="flex gap-3">
+      <button id="mp-play-btn" onclick="mpPlay()"
+        class="border border-[--cyan] text-[--cyan] rounded px-6 py-2 font-bold hover:bg-[--cyan] hover:text-black transition-colors">▶</button>
+      <button onclick="mpSkip()"
+        class="border border-[--gx] text-[--gx] rounded px-6 py-2 font-bold hover:bg-[--gx] hover:text-black transition-colors">SKIP ⏭</button>
+    </div>
+    <div class="flex items-center gap-3 mt-1">
+      <span class="text-zinc-500 text-sm select-none">🔈</span>
+      <input id="vol-slider" type="range" min="0" max="100" value="80"
+        oninput="setVol(this.value)"
+        class="w-40 accent-[--cyan] cursor-pointer" />
+      <span class="text-zinc-500 text-sm select-none">🔊</span>
+    </div>
   </div>
 
   <!-- queue -->
@@ -77,6 +86,13 @@ let pendingLoad = null;
 let lastVideoId = null;
 let lastIsPlaying = false;
 let armed = false;
+let currentVol = 80;
+
+function setVol(v) {
+  currentVol = +v;
+  if (ytPlayer?.setVolume) ytPlayer.setVolume(currentVol);
+  if (ytPlayer && currentVol > 0) ytPlayer.unMute?.();
+}
 
 let S = { music: { queue:[], current:null, isPlaying:false } };
 
@@ -110,7 +126,7 @@ function onYouTubeIframeAPIReady() {
         }
         if (e.data === YT.PlayerState.PLAYING) {
           ytPlayer.unMute();
-          ytPlayer.setVolume(100);
+          ytPlayer.setVolume(currentVol);
           lastIsPlaying = true;
         }
         if (e.data === YT.PlayerState.PAUSED) lastIsPlaying = false;
@@ -128,7 +144,7 @@ function loadVideo(videoId, autoplay) {
   lastIsPlaying = !!autoplay;
   if (autoplay) {
     ytPlayer.unMute();
-    ytPlayer.setVolume(100);
+    ytPlayer.setVolume(currentVol);
     ytPlayer.loadVideoById(videoId);
   } else {
     ytPlayer.cueVideoById(videoId);
@@ -162,7 +178,7 @@ es.addEventListener("state", e => {
     lastIsPlaying = newIsPlaying;
     if (newIsPlaying) {
       ytPlayer?.unMute?.();
-      ytPlayer?.setVolume?.(100);
+      ytPlayer?.setVolume?.(currentVol);
       ytPlayer?.playVideo?.();
     } else {
       ytPlayer?.pauseVideo?.();
